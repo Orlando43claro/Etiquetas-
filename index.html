@@ -3,35 +3,924 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reproductor de Video TikTok</title>
+    <title>Editor Studio</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
     <style>
-        body {
+        :root {
+            --bg-main: #0f1115;
+            --bg-surface: #16181d;
+            --bg-tab-active: #1e222b;
+            --border-color: #262930;
+            --text-main: #e3e6ed;
+            --text-muted: #8b949e;
+            --accent: #2f81f7;
+            --accent-success: #238636;
+            --accent-danger: #da3637;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        body.light-mode {
+            --bg-main: #f6f8fa;
+            --bg-surface: #ffffff;
+            --bg-tab-active: #eff2f5;
+            --border-color: #d0d7de;
+            --text-main: #24292f;
+            --text-muted: #57606a;
+            --accent: #0969da;
+            --accent-success: #1a7f37;
+            --accent-danger: #cf222e;
+        }
+
+        * {
             margin: 0;
             padding: 0;
-            background-color: black;
+            box-sizing: border-box;
+            transition: background-color 0.2s, border-color 0.2s;
         }
 
-        .video-container {
-            width: 100vw;
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            overflow: hidden;
             height: 100vh;
             display: flex;
-            justify-content: center;
-            align-items: center;
+            flex-direction: column;
         }
 
-        video {
+        /* --- PANTALLA DE CARGA INICIAL (SPLASH SCREEN) --- */
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            background-color: #0f1115;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            gap: 15px;
         }
+
+        .splash-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(1.05);
+        }
+
+        /* --- MODAL DE AUTENTICACIÓN (ALTO CONTRASTE CORREGIDO) --- */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 12, 16, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            z-index: 5000;
+        }
+
+        .auth-card {
+            background-color: #1c1f26;
+            border: 1px solid #30363d;
+            border-radius: 16px;
+            padding: 35px 25px;
+            width: 90%;
+            max-width: 380px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        .auth-card h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-top: 10px;
+            margin-bottom: 8px;
+            color: #ffffff !important;
+        }
+
+        .auth-card p {
+            color: #9ca3af !important;
+            font-size: 14px;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            text-align: left;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #e5e7eb !important;
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: 12px 14px;
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #ffffff !important;
+            font-size: 15px;
+            font-family: var(--font-sans);
+        }
+
+        .auth-input::placeholder {
+            color: #4b5563 !important; 
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: #2f81f7;
+            box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.2);
+        }
+
+        .btn-auth-submit {
+            width: 100%;
+            background-color: #2f81f7;
+            color: #ffffff !important;
+            border: none;
+            padding: 13px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn-auth-submit:hover { background-color: #4c94ff; }
+        .btn-auth-submit:active { transform: scale(0.98); }
+
+        .auth-toggle-text {
+            font-size: 14px;
+            color: #9ca3af !important;
+            margin-top: 22px;
+        }
+
+        .auth-toggle-link {
+            color: #58a6ff !important;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+        .auth-toggle-link:hover { text-decoration: underline; }
+
+        /* Perfil de usuario en Header */
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 8px;
+            border-left: 1px solid var(--border-color);
+            padding-left: 12px;
+        }
+
+        .user-avatar-initial {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: var(--accent);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        #logout-btn {
+            color: var(--text-muted);
+            font-size: 14px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+        #logout-btn:hover { color: var(--accent-danger); }
+
+        /* Header Superior */
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--bg-surface);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 20px;
+            flex-shrink: 0;
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .title span {
+            background: linear-gradient(45deg, var(--accent), #8a2be2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-action {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .btn-action:hover {
+            color: var(--text-main);
+            background-color: var(--bg-tab-active);
+            border-color: var(--border-color);
+        }
+
+        #projects-btn { color: #2f81f7; }
+        #theme-toggle { color: #e1b12c; }
+        #clear-btn { color: #fa8231; }
+
+        /* Área de Trabajo */
+        .workspace {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            background-color: var(--bg-surface);
+        }
+
+        .editor-tabs {
+            display: flex;
+            background-color: var(--bg-main);
+            border-bottom: 1px solid var(--border-color);
+            padding-left: 10px;
+        }
+
+        .tab {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            color: var(--accent);
+            background-color: var(--bg-surface);
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .tab i.fa-html5 { color: #e34f26; }
+        .tab i.fa-css3-alt { color: #1572b6; }
+        .tab i.fa-js-square { color: #f7df1e; }
+        #run-tab i { color: #2f81f7; }
+
+        .screen {
+            display: none;
+            width: 100%;
+            height: calc(100% - 43px);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+        
+        .screen.active { display: block; }
+
+        .CodeMirror {
+            height: 100% !important;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            background: var(--bg-surface) !important;
+        }
+
+        body.light-mode .CodeMirror { background: #ffffff !important; }
+
+        #preview-screen {
+            background-color: #ffffff;
+            height: calc(100% - 43px);
+            position: relative;
+        }
+
+        #preview-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: #ffffff;
+            display: none;
+        }
+
+        .welcome-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #0f1115;
+            padding: 20px;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        body.light-mode .welcome-container { background-color: #f6f8fa; }
+
+        /* --- LOGO ANIMACIONES KEYFRAMES --- */
+        @keyframes iconDrawLine { to { stroke-dashoffset: 0; } }
+        @keyframes iconFadeInScale { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+
+        .icon-anim-hex { stroke-dasharray: 400; stroke-dashoffset: 400; animation: iconDrawLine 2s ease-out forwards; }
+        .icon-anim-hex-bg { opacity: 0; transform-origin: center; animation: iconFadeInScale 1.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; animation-delay: 0.8s; }
+        .icon-anim-bracket { stroke-dasharray: 100; stroke-dashoffset: 100; animation: iconDrawLine 1.4s ease-in-out forwards; animation-delay: 0.5s; }
+        .icon-anim-element { opacity: 0; transform-origin: center; animation: iconFadeInScale 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .icon-delay-arrow-1 { animation-delay: 1.3s; }
+        .icon-delay-arrow-2 { animation-delay: 1.6s; }
+        .icon-delay-dot     { animation-delay: 1.9s; }
+
+        /* Modales */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .modal-content {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal h3 { margin-bottom: 16px; }
+        .modal-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+        .modal button { padding: 10px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-main); cursor: pointer; border-radius: 6px; }
+        .modal button.clear-action { background-color: var(--accent-danger); color: white; border: none; }
+        .modal button.cancel { grid-column: span 2; background: transparent; border: none; color: var(--text-muted); }
+
+        .project-input-container { display: flex; gap: 8px; margin-bottom: 16px; }
+        .project-input-container input { flex: 1; padding: 10px; background-color: var(--bg-main); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-main); font-family: var(--font-sans); font-size: 14px; }
+        .project-input-container input:focus { outline: none; border-color: var(--accent); }
+        .btn-save-project { background-color: var(--accent) !important; color: white !important; border: none !important; padding: 10px 14px; font-weight: 500; }
+
+        .projects-list { max-height: 220px; overflow-y: auto; text-align: left; margin-bottom: 16px; border-top: 1px solid var(--border-color); padding-top: 12px; }
+        .project-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background-color: var(--bg-main); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; }
+        .project-info { display: flex; flex-direction: column; cursor: pointer; flex: 1; }
+        .project-name { font-size: 14px; font-weight: 500; color: var(--text-main); }
+        .project-date { font-size: 11px; color: var(--text-muted); }
+        .project-actions { display: flex; gap: 6px; }
+        .btn-load { color: var(--accent) !important; background: transparent !important; border: none !important; padding: 6px !important; }
+        .btn-delete { color: var(--accent-danger) !important; background: transparent !important; border: none !important; padding: 6px !important; }
+
+        .dialog-text { color: var(--text-main); font-size: 15px; margin-bottom: 20px; line-height: 1.4; }
+        .dialog-buttons { display: flex; justify-content: center; gap: 12px; }
+        .dialog-btn { flex: 1; padding: 10px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-main); }
+        .dialog-btn-primary { background-color: var(--accent); color: white; border: none; }
+        .dialog-btn-danger { background-color: var(--accent-danger); color: white; border: none; }
     </style>
 </head>
-<body>
-    <div class="video-container">
-        <video controls poster="an.png">
-            <source src="ann.mp4" type="video/mp4">
-            Tu navegador no soporta el elemento de video.
-        </video>
+<body class="dark-mode">
+
+    <!-- 1. PANTALLA DE CARGA INICIAL (SPLASH SCREEN) -->
+    <div id="loading-splash" class="splash-screen">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 8px 32px rgba(47, 129, 247, 0.4));">
+            <defs>
+                <linearGradient id="splash-cyber-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#2f81f7" ></stop>
+                    <stop offset="50%" stop-color="#6f42c1" ></stop>
+                    <stop offset="100%" stop-color="#8a2be2" ></stop>
+                </linearGradient>
+                <linearGradient id="splash-bg-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#16181d" stop-opacity="0.9"></stop>
+                    <stop offset="100%" stop-color="#0f1115" stop-opacity="0.7"></stop>
+                </linearGradient>
+            </defs>
+            <polygon class="icon-anim-hex-bg" points="60,10 105,35 105,85 60,110 15,85 15,35" fill="url(#splash-bg-glow)"></polygon>
+            <polygon class="icon-anim-hex" points="60,10 105,35 105,85 60,110 15,85 15,35" stroke="url(#splash-cyber-grad)" stroke-width="2"></polygon>
+            <path class="icon-anim-bracket" d="M40 78 L22 60 L40 42" stroke="url(#splash-cyber-grad)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path class="icon-anim-bracket" d="M80 78 L98 60 L80 42" stroke="url(#splash-cyber-grad)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path class="icon-anim-element icon-delay-arrow-1" d="M60 25 L74 62 L60 54 L46 62 Z" fill="url(#splash-cyber-grad)"></path>
+            <path class="icon-anim-element icon-delay-arrow-2" d="M60 62 L68 88 L60 82 L52 88 Z" fill="#2f81f7" opacity="0.9"></path>
+            <circle class="icon-anim-element icon-delay-dot" cx="60" cy="50" r="4" fill="#ffffff" ></circle>
+        </svg>
+        <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -1px; margin: 5px 0 0 0; background: linear-gradient(45deg, #2f81f7, #8a2be2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Editor Studio
+        </h1>
     </div>
+
+    <!-- 2. MODAL DE AUTENTICACIÓN CON MEJORAS DE VISIBILIDAD -->
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-card">
+            <h2 id="auth-title">Iniciar Sesión</h2>
+            <p id="auth-subtitle">Ingresa tus datos para acceder a tus proyectos en la nube.</p>
+            
+            <form id="auth-form" class="auth-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="auth-email">Correo Electrónico</label>
+                    <input type="email" id="auth-email" class="auth-input" placeholder="ejemplo@correo.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Contraseña</label>
+                    <input type="password" id="auth-password" class="auth-input" placeholder="••••••••" required>
+                </div>
+                <button type="submit" id="btn-auth-submit" class="btn-auth-submit">Entrar</button>
+            </form>
+
+            <p class="auth-toggle-text">
+                <span id="toggle-message">¿No tienes una cuenta?</span> 
+                <span id="toggle-auth-mode" class="auth-toggle-link">Regístrate aquí</span>
+            </p>
+        </div>
+    </div>
+
+    <header class="header-container">
+        <div class="title">🚀 <span>Editor Studio</span></div>
+        
+        <div class="controls">
+            <button id="projects-btn" class="btn-action" title="Proyectos"><i class="fas fa-folder"></i></button>
+            <button id="clear-btn" class="btn-action" title="Limpiar"><i class="fas fa-trash-alt"></i></button>
+            <button id="theme-toggle" class="btn-action" title="Tema"><i class="fas fa-sun"></i></button>
+            
+            <!-- Perfil del usuario -->
+            <div id="user-profile-section" class="user-profile" style="display: none;">
+                <div id="user-initial" class="user-avatar-initial">U</div>
+                <button id="logout-btn" title="Cerrar Sesión"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <div class="editor-tabs">
+            <button id="html-tab" class="tab active"><i class="fab fa-html5"></i> HTML</button>
+            <button id="css-tab" class="tab"><i class="fab fa-css3-alt"></i> CSS</button>
+            <button id="js-tab" class="tab"><i class="fab fa-js-square"></i> JS</button>
+            <button id="run-tab" class="tab"><i class="fas fa-eye"></i> Preview</button>
+        </div>
+
+        <div class="screen active" id="html-screen"><textarea id="html-code"></textarea></div>
+        <div class="screen" id="css-screen"><textarea id="css-code"></textarea></div>
+        <div class="screen" id="js-screen"><textarea id="js-code"></textarea></div>
+
+        <div class="screen" id="preview-screen">
+            <div id="welcome-screen" class="welcome-container">
+                <svg width="100" height="100" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="60,10 105,35 105,85 60,110 15,85 15,35" stroke="url(#splash-cyber-grad)" stroke-width="2"></polygon>
+                    <path d="M40 78 L22 60 L40 42" stroke="url(#splash-cyber-grad)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M80 78 L98 60 L80 42" stroke="url(#splash-cyber-grad)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+                <h1 style="font-size: 24px; font-weight: 700; margin: 0; background: linear-gradient(45deg, #2f81f7, #8a2be2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Editor Studio</h1>
+                <p style="font-size: 12px; color: #8b949e; margin: 0; text-transform: uppercase; font-weight: 500;">Live Frontend Environment</p>
+            </div>
+            <iframe id="preview-frame"></iframe>
+        </div>
+    </main>
+
+    <!-- Modales de Limpieza y Listas -->
+    <div id="clear-modal" class="modal">
+        <div class="modal-content">
+            <h3>¿Qué deseas borrar?</h3>
+            <div class="modal-buttons">
+                <button id="clear-html">HTML</button>
+                <button id="clear-css">CSS</button>
+                <button id="clear-js">JavaScript</button>
+                <button id="clear-all" class="clear-action">Todo</button>
+            </div>
+            <button id="cancel-clear" class="cancel">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="projects-modal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <h3>Mis Proyectos en la Nube</h3>
+            <div class="project-input-container">
+                <input type="text" id="project-name-input" placeholder="Nombre del nuevo proyecto...">
+                <button id="save-project-btn" class="btn-save-project"><i class="fas fa-save"></i> Guardar</button>
+            </div>
+            <div class="projects-list" id="projects-list-container"></div>
+            <button id="close-projects-btn" class="cancel" style="width: 100%;">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- Alert / Confirm Diálogos -->
+    <div id="alert-modal" class="modal" style="z-index: 6000;"><div class="modal-content" style="max-width: 380px;"><h3 id="alert-title">Atención</h3><div id="alert-message" class="dialog-text"></div><div class="dialog-buttons"><button id="alert-ok-btn" class="dialog-btn dialog-btn-primary">Aceptar</button></div></div></div>
+    <div id="confirm-modal" class="modal" style="z-index: 6000;"><div class="modal-content" style="max-width: 380px;"><h3 id="confirm-title">Confirmar</h3><div id="confirm-message" class="dialog-text"></div><div class="dialog-buttons"><button id="confirm-cancel-btn" class="dialog-btn">Cancelar</button><button id="confirm-ok-btn" class="dialog-btn dialog-btn-danger">Eliminar</button></div></div></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+
+    <!-- INTEGRACIÓN TOTAL DE FIREBASE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCEfXu-pLIMzqRoC3nbRoe_bjvSudrxH-0",
+            authDomain: "editor-studio-5997e.firebaseapp.com",
+            databaseURL: "https://editor-studio-5997e-default-rtdb.firebaseio.com",
+            projectId: "editor-studio-5997e",
+            storageBucket: "editor-studio-5997e.firebasestorage.app",
+            messagingSenderId: "997286924433",
+            appId: "1:997286924433:web:8a6a03aa19632d6a7def30"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let cloudProjects = [];
+        let isLoginMode = true;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const splash = document.getElementById('loading-splash');
+            setTimeout(() => {
+                splash.classList.add('fade-out');
+                setTimeout(() => splash.remove(), 500);
+            }, 2500);
+
+            const htmlTab = document.getElementById('html-tab');
+            const cssTab = document.getElementById('css-tab');
+            const jsTab = document.getElementById('js-tab');
+            const runTab = document.getElementById('run-tab');
+            const themeToggle = document.getElementById('theme-toggle');
+            const clearBtn = document.getElementById('clear-btn');
+            const body = document.body;
+            
+            const modal = document.getElementById('clear-modal');
+            const cancelClear = document.getElementById('cancel-clear');
+            const projectsBtn = document.getElementById('projects-btn');
+            const projectsModal = document.getElementById('projects-modal');
+            const closeProjectsBtn = document.getElementById('close-projects-btn');
+            const saveProjectBtn = document.getElementById('save-project-btn');
+            const projectNameInput = document.getElementById('project-name-input');
+            const projectsListContainer = document.getElementById('projects-list-container');
+            
+            const alertModal = document.getElementById('alert-modal');
+            const alertMessage = document.getElementById('alert-message');
+            const alertOkBtn = document.getElementById('alert-ok-btn');
+            
+            const confirmModal = document.getElementById('confirm-modal');
+            const confirmMessage = document.getElementById('confirm-message');
+            const confirmOkBtn = document.getElementById('confirm-ok-btn');
+            const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+
+            const previewFrame = document.getElementById('preview-frame');
+            const welcomeScreen = document.getElementById('welcome-screen');
+
+            const authOverlay = document.getElementById('auth-overlay');
+            const authForm = document.getElementById('auth-form');
+            const emailInput = document.getElementById('auth-email');
+            const passwordInput = document.getElementById('auth-password');
+            const btnAuthSubmit = document.getElementById('btn-auth-submit');
+            const authTitle = document.getElementById('auth-title');
+            const authSubtitle = document.getElementById('auth-subtitle');
+            const toggleAuthMode = document.getElementById('toggle-auth-mode');
+            const toggleMessage = document.getElementById('toggle-message');
+            
+            const userProfileSection = document.getElementById('user-profile-section');
+            const userInitial = document.getElementById('user-initial');
+            const logoutBtn = document.getElementById('logout-btn');
+
+            function showCustomAlert(message) {
+                alertMessage.textContent = message;
+                alertModal.style.display = 'flex';
+            }
+            alertOkBtn.addEventListener('click', () => alertModal.style.display = 'none');
+
+            let confirmResolveCallback = null;
+            function showCustomConfirm(message) {
+                return new Promise((resolve) => {
+                    confirmMessage.textContent = message;
+                    confirmModal.style.display = 'flex';
+                    confirmResolveCallback = resolve;
+                });
+            }
+            confirmOkBtn.addEventListener('click', () => { confirmModal.style.display = 'none'; if (confirmResolveCallback) confirmResolveCallback(true); });
+            confirmCancelBtn.addEventListener('click', () => { confirmModal.style.display = 'none'; if (confirmResolveCallback) confirmResolveCallback(false); });
+
+            toggleAuthMode.addEventListener('click', () => {
+                isLoginMode = !isLoginMode;
+                if (isLoginMode) {
+                    authTitle.textContent = "Iniciar Sesión";
+                    authSubtitle.textContent = "Ingresa tus datos para acceder a tus proyectos en la nube.";
+                    btnAuthSubmit.textContent = "Entrar";
+                    toggleMessage.textContent = "¿No tienes una cuenta?";
+                    toggleAuthMode.textContent = "Regístrate aquí";
+                } else {
+                    authTitle.textContent = "Crear Cuenta";
+                    authSubtitle.textContent = "Regístrate gratis para empezar a guardar tus códigos en tiempo real.";
+                    btnAuthSubmit.textContent = "Registrarme";
+                    toggleMessage.textContent = "¿Ya tienes cuenta?";
+                    toggleAuthMode.textContent = "Inicia sesión";
+                }
+                authForm.reset();
+            });
+
+            const savedTheme = localStorage.getItem('editorTheme') || 'dracula';
+            if (savedTheme === 'default') body.classList.add('light-mode');
+
+            const htmlCodeMirror = CodeMirror.fromTextArea(document.getElementById('html-code'), { lineNumbers: true, mode: "text/html", theme: savedTheme, autoCloseTags: true });
+            const cssCodeMirror = CodeMirror.fromTextArea(document.getElementById('css-code'), { lineNumbers: true, mode: "text/css", theme: savedTheme });
+            const jsCodeMirror = CodeMirror.fromTextArea(document.getElementById('js-code'), { lineNumbers: true, mode: "text/javascript", theme: savedTheme, autoCloseBrackets: true });
+
+            themeToggle.innerHTML = (savedTheme === 'default') ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+
+            function saveCodeLocal() {
+                localStorage.setItem('htmlCode', htmlCodeMirror.getValue());
+                localStorage.setItem('cssCode', cssCodeMirror.getValue());
+                localStorage.setItem('jsCode', jsCodeMirror.getValue());
+            }
+
+            function loadCodeLocal() {
+                htmlCodeMirror.setValue(localStorage.getItem('htmlCode') || '');
+                cssCodeMirror.setValue(localStorage.getItem('cssCode') || '');
+                jsCodeMirror.setValue(localStorage.getItem('jsCode') || '');
+            }
+
+            let debounceTimer;
+            [htmlCodeMirror, cssCodeMirror, jsCodeMirror].forEach(editor => {
+                editor.on('change', () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        saveCodeLocal();
+                        updatePreview();
+                    }, 400);
+                });
+            });
+
+            function switchTab(clickedTab, targetScreen, codeMirrorInstance) {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                clickedTab.classList.add('active');
+                targetScreen.classList.add('active');
+                if (codeMirrorInstance) setTimeout(() => codeMirrorInstance.refresh(), 50);
+            }
+
+            htmlTab.addEventListener('click', () => switchTab(htmlTab, document.getElementById('html-screen'), htmlCodeMirror));
+            cssTab.addEventListener('click', () => switchTab(cssTab, document.getElementById('css-screen'), cssCodeMirror));
+            jsTab.addEventListener('click', () => switchTab(jsTab, document.getElementById('js-screen'), jsCodeMirror));
+            runTab.addEventListener('click', () => { updatePreview(); switchTab(runTab, document.getElementById('preview-screen'), null); });
+
+            function updatePreview() {
+                const htmlVal = htmlCodeMirror.getValue().trim();
+                const cssVal = cssCodeMirror.getValue().trim();
+                const jsVal = jsCodeMirror.getValue().trim();
+
+                if (!htmlVal && !cssVal && !jsVal) {
+                    welcomeScreen.style.display = 'flex';
+                    previewFrame.style.display = 'none';
+                } else {
+                    welcomeScreen.style.display = 'none';
+                    previewFrame.style.display = 'block';
+                    previewFrame.src = "about:blank";
+                    previewFrame.onload = () => {
+                        const previewDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+                        previewDoc.open();
+                        previewDoc.write(htmlVal + `<style>${cssVal}</style>` + `<script>${jsVal}<\/script>`);
+                        previewDoc.close();
+                        previewFrame.onload = null;
+                    };
+                }
+            }
+
+            themeToggle.addEventListener('click', () => {
+                body.classList.toggle('light-mode');
+                const isLight = body.classList.contains('light-mode');
+                const newTheme = isLight ? 'default' : 'dracula';
+                [htmlCodeMirror, cssCodeMirror, jsCodeMirror].forEach(cm => cm.setOption("theme", newTheme));
+                localStorage.setItem('editorTheme', newTheme);
+                themeToggle.innerHTML = isLight ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+            });
+
+            clearBtn.addEventListener('click', () => modal.style.display = 'flex');
+            cancelClear.addEventListener('click', () => modal.style.display = 'none');
+
+            const setupClear = (btnId, editor) => {
+                document.getElementById(btnId).addEventListener('click', () => {
+                    if (editor) { editor.setValue(''); } 
+                    else { htmlCodeMirror.setValue(''); cssCodeMirror.setValue(''); jsCodeMirror.setValue(''); }
+                    saveCodeLocal();
+                    modal.style.display = 'none';
+                    updatePreview();
+                });
+            };
+            setupClear('clear-html', htmlCodeMirror);
+            setupClear('clear-css', cssCodeMirror);
+            setupClear('clear-js', jsCodeMirror);
+            setupClear('clear-all', null);
+
+            projectsBtn.addEventListener('click', () => projectsModal.style.display = 'flex');
+            closeProjectsBtn.addEventListener('click', () => projectsModal.style.display = 'none');
+
+            // --- CONTROL DE SESIÓN ---
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    authOverlay.style.display = 'none';
+                    userInitial.textContent = user.email.charAt(0).toUpperCase();
+                    userProfileSection.style.display = 'flex';
+
+                    loadCodeLocal();
+                    updatePreview();
+
+                    const q = query(
+                        collection(db, "users", user.uid, "projects"),
+                        orderBy("createdAt", "desc")
+                    );
+
+                    onSnapshot(q, (snapshot) => {
+                        cloudProjects = [];
+                        snapshot.forEach((doc) => {
+                            cloudProjects.push({ id: doc.id, ...doc.data() });
+                        });
+                        renderProjectsList();
+                    });
+
+                } else {
+                    currentUser = null;
+                    userProfileSection.style.display = 'none';
+                    authOverlay.style.display = 'flex';
+                }
+            });
+
+            authForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = emailInput.value.trim();
+                const password = passwordInput.value.trim();
+
+                if (password.length < 6) {
+                    showCustomAlert("La contraseña debe tener mínimo 6 caracteres.");
+                    return;
+                }
+
+                try {
+                    if (isLoginMode) {
+                        await signInWithEmailAndPassword(auth, email, password);
+                    } else {
+                        await createUserWithEmailAndPassword(auth, email, password);
+                        showCustomAlert("¡Cuenta creada con éxito!");
+                    }
+                    authForm.reset();
+                } catch (error) {
+                    let friendlyMessage = "Ocurrió un error: " + error.message;
+                    if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                        friendlyMessage = "Correo o contraseña incorrectos.";
+                    } else if (error.code === 'auth/email-already-in-use') {
+                        friendlyMessage = "Este correo electrónico ya está registrado.";
+                    } else if (error.code === 'auth/invalid-email') {
+                        friendlyMessage = "El formato de correo no es válido.";
+                    }
+                    showCustomAlert(friendlyMessage);
+                }
+            });
+
+            logoutBtn.addEventListener('click', async () => {
+                const confirmOut = await showCustomConfirm("¿Seguro que deseas cerrar sesión en Editor Studio?");
+                if (confirmOut) {
+                    signOut(auth);
+                }
+            });
+
+            // --- MANEJO DE ARCHIVOS EN CLOUD FIRESTORE ---
+            saveProjectBtn.addEventListener('click', async () => {
+                const name = projectNameInput.value.trim();
+                if (!name) {
+                    showCustomAlert('Escribe un nombre para el proyecto.');
+                    return;
+                }
+
+                if (!currentUser) return;
+
+                const projectId = Date.now().toString();
+                const projectRef = doc(db, "users", currentUser.uid, "projects", projectId);
+
+                try {
+                    await setDoc(projectRef, {
+                        name: name,
+                        html: htmlCodeMirror.getValue(),
+                        css: cssCodeMirror.getValue(),
+                        js: jsCodeMirror.getValue(),
+                        createdAt: new Date().toISOString()
+                    });
+                    projectNameInput.value = '';
+                } catch (error) {
+                    showCustomAlert("Error al guardar en la nube: " + error.message);
+                }
+            });
+
+            function renderProjectsList() {
+                projectsListContainer.innerHTML = '';
+                
+                if (cloudProjects.length === 0) {
+                    projectsListContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 10px 0;">No tienes proyectos guardados en la nube.</p>';
+                    return;
+                }
+
+                cloudProjects.forEach(project => {
+                    const item = document.createElement('div');
+                    item.className = 'project-item';
+                    const dateFormatted = new Date(project.createdAt).toLocaleDateString();
+
+                    item.innerHTML = `
+                        <div class="project-info">
+                            <span class="project-name">${project.name}</span>
+                            <span class="project-date"><i class="fas fa-cloud"></i> Sincronizado: ${dateFormatted}</span>
+                        </div>
+                        <div class="project-actions">
+                            <button class="btn-load" title="Cargar"><i class="fas fa-folder-open"></i></button>
+                            <button class="btn-delete" title="Eliminar de la nube"><i class="fas fa-trash"></i></button>
+                        </div>
+                    `;
+
+                    const loadAction = () => {
+                        htmlCodeMirror.setValue(project.html || '');
+                        cssCodeMirror.setValue(project.css || '');
+                        jsCodeMirror.setValue(project.js || '');
+                        saveCodeLocal();
+                        updatePreview();
+                        projectsModal.style.display = 'none';
+                        switchTab(htmlTab, document.getElementById('html-screen'), htmlCodeMirror);
+                    };
+
+                    item.querySelector('.project-info').addEventListener('click', loadAction);
+                    item.querySelector('.btn-load').addEventListener('click', loadAction);
+
+                    item.querySelector('.btn-delete').addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const confirmDelete = await showCustomConfirm(`¿Deseas eliminar permanentemente "${project.name}" de la nube?`);
+                        if (confirmDelete && currentUser) {
+                            try {
+                                await deleteDoc(doc(db, "users", currentUser.uid, "projects", project.id));
+                            } catch (error) {
+                                showCustomAlert("Error al borrar: " + error.message);
+                            }
+                        }
+                    });
+
+                    projectsListContainer.appendChild(item);
+                });
+            }
+        });
+    </script>
 </body>
 </html>
