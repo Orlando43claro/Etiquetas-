@@ -77,7 +77,7 @@
             transform: scale(1.05);
         }
 
-        /* --- MODAL DE AUTENTICACIÓN (ALTO CONTRASTE CORREGIDO) --- */
+        /* --- MODAL DE AUTENTICACIÓN --- */
         .auth-overlay {
             position: fixed;
             top: 0;
@@ -425,9 +425,9 @@
         .project-info { display: flex; flex-direction: column; cursor: pointer; flex: 1; }
         .project-name { font-size: 14px; font-weight: 500; color: var(--text-main); }
         .project-date { font-size: 11px; color: var(--text-muted); }
-        .project-actions { display: flex; gap: 6px; }
-        .btn-load { color: var(--accent) !important; background: transparent !important; border: none !important; padding: 6px !important; }
-        .btn-delete { color: var(--accent-danger) !important; background: transparent !important; border: none !important; padding: 6px !important; }
+        .project-actions { display: flex; gap: 6px; align-items: center; }
+        .btn-load { color: var(--accent) !important; background: transparent !important; border: none !important; padding: 6px !important; cursor: pointer; }
+        .btn-delete { color: var(--accent-danger) !important; background: transparent !important; border: none !important; padding: 6px !important; cursor: pointer; }
 
         .dialog-text { color: var(--text-main); font-size: 15px; margin-bottom: 20px; line-height: 1.4; }
         .dialog-buttons { display: flex; justify-content: center; gap: 12px; }
@@ -465,7 +465,7 @@
         </h1>
     </div>
 
-    <!-- 2. MODAL DE AUTENTICACIÓN CON MEJORAS DE VISIBILIDAD -->
+    <!-- 2. MODAL DE AUTENTICACIÓN -->
     <div id="auth-overlay" class="auth-overlay">
         <div class="auth-card">
             <h2 id="auth-title">Iniciar Sesión</h2>
@@ -494,7 +494,10 @@
         <div class="title">🚀 <span>Editor Studio</span></div>
         
         <div class="controls">
-            <button id="projects-btn" class="btn-action" title="Proyectos"><i class="fas fa-folder"></i></button>
+            <!-- Botón con el contador integrado -->
+            <button id="projects-btn" class="btn-action" title="Proyectos">
+                <i class="fas fa-folder"></i> <span id="project-count" style="font-size: 12px; font-weight: 600; color: var(--accent);"></span>
+            </button>
             <button id="clear-btn" class="btn-action" title="Limpiar"><i class="fas fa-trash-alt"></i></button>
             <button id="theme-toggle" class="btn-action" title="Tema"><i class="fas fa-sun"></i></button>
             
@@ -593,6 +596,8 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             const splash = document.getElementById('loading-splash');
+            
+            // Forzar remoción de splash screen
             setTimeout(() => {
                 splash.classList.add('fade-out');
                 setTimeout(() => splash.remove(), 500);
@@ -793,6 +798,10 @@
                         snapshot.forEach((doc) => {
                             cloudProjects.push({ id: doc.id, ...doc.data() });
                         });
+                        
+                        // ACTUALIZACIÓN DEL CONTADOR DINÁMICO
+                        document.getElementById('project-count').textContent = cloudProjects.length > 0 ? `(${cloudProjects.length})` : '';
+                        
                         renderProjectsList();
                     });
 
@@ -800,6 +809,7 @@
                     currentUser = null;
                     userProfileSection.style.display = 'none';
                     authOverlay.style.display = 'flex';
+                    document.getElementById('project-count').textContent = '';
                 }
             });
 
@@ -887,11 +897,14 @@
                             <span class="project-date"><i class="fas fa-cloud"></i> Sincronizado: ${dateFormatted}</span>
                         </div>
                         <div class="project-actions">
-                            <button class="btn-load" title="Cargar"><i class="fas fa-folder-open"></i></button>
+                            <button class="btn-share" title="Compartir código" style="color: #a370f7; background: transparent; border: none; padding: 6px; cursor: pointer;"><i class="fas fa-share-alt"></i></button>
+                            <button class="btn-download" title="Descargar archivo HTML" style="color: #238636; background: transparent; border: none; padding: 6px; cursor: pointer;"><i class="fas fa-download"></i></button>
+                            <button class="btn-load" title="Cargar en editor"><i class="fas fa-folder-open"></i></button>
                             <button class="btn-delete" title="Eliminar de la nube"><i class="fas fa-trash"></i></button>
                         </div>
                     `;
 
+                    // Cargar proyecto al editor
                     const loadAction = () => {
                         htmlCodeMirror.setValue(project.html || '');
                         cssCodeMirror.setValue(project.css || '');
@@ -905,6 +918,67 @@
                     item.querySelector('.project-info').addEventListener('click', loadAction);
                     item.querySelector('.btn-load').addEventListener('click', loadAction);
 
+                    // Descargar archivo único empaquetado (LÓGICA MEJORADA CON BASE64 PARA WEBVIEWS)
+                    item.querySelector('.btn-download').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        
+                        const fullMergedCode = `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${project.name}</title>
+    <style>
+${project.css || ''}
+    </style>
+</head>
+<body>
+${project.html || ''}
+    <script>
+${project.js || ''}
+    <\/script>
+</body>
+</html>`;
+
+                        try {
+                            const base64Code = btoa(unescape(encodeURIComponent(fullMergedCode)));
+                            const fileName = `${project.name.toLowerCase().replace(/\s+/g, '_')}.html`;
+                            
+                            const link = document.createElement('a');
+                            link.href = `data:text/html;charset=utf-8;base64,${base64Code}`;
+                            link.download = fileName;
+                            
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        } catch (err) {
+                            const link = document.createElement('a');
+                            link.href = 'data:text/html;charset=utf-8,' + encodeURIComponent(fullMergedCode);
+                            link.download = `${project.name.toLowerCase().replace(/\s+/g, '_')}.html`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }
+                    });
+
+                    // Copiar plantilla completa estructurada lista para enviar
+                    item.querySelector('.btn-share').addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        
+                        const sharedTemplate = `<!-- Proyecto: ${project.name} (Creado en Editor Studio) -->\n` +
+                                               `${project.html || ''}\n\n` +
+                                               `<style>\n${project.css || ''}\n</style>\n\n` +
+                                               `<script>\n${project.js || ''}\n<\/script>`;
+                        
+                        try {
+                            await navigator.clipboard.writeText(sharedTemplate);
+                            showCustomAlert(`¡Código de "${project.name}" copiado al portapapeles listo para compartir!`);
+                        } catch (err) {
+                            showCustomAlert("No se pudo copiar el código automáticamente.");
+                        }
+                    });
+
+                    // Eliminar proyecto
                     item.querySelector('.btn-delete').addEventListener('click', async (e) => {
                         e.stopPropagation();
                         const confirmDelete = await showCustomConfirm(`¿Deseas eliminar permanentemente "${project.name}" de la nube?`);
